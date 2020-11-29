@@ -1,6 +1,6 @@
 # 15663_Computational_Photography_Project 
 
-## Photo Stylization/Unrealistic Rendeinring on Android
+## Photo Stylization/Unrealistic Rendering on Android
 
 This repo needs to add opencv library (with Java API) into the gradle.
 
