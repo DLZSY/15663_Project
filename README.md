@@ -1,4 +1,4 @@
-# 15663_Project 
+# 15663_Computational_Photography_Project 
 
 ## Photo Stylization/Unrealistic Rendeinring on Android
 
