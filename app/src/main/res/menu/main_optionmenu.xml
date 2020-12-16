@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/sketch_filter"
+        android:title="Sketch Filter" />
+    <item android:id="@+id/watercolor_filter"
+        android:title="Watercolor Filter" />
+    <item android:id="@+id/blending"
+        android:title="Image Blending" />
+    <item android:id="@+id/pencil_filter"
+        android:title="Pencil Filter" />
+</menu>

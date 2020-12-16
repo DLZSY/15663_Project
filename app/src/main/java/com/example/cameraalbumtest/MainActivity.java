@@ -2,6 +2,7 @@ package com.example.cameraalbumtest;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.content.ClipData;
 import android.content.ContentUris;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -21,6 +22,8 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -46,13 +49,24 @@ import com.example.cameraalbumtest.SketchFilter;
 
 public class MainActivity extends AppCompatActivity {
     public static final int TAKE_PHOTO = 1;
-
     public static final int CHOOSE_PHOTO = 2;
     //private static final String TAG = "";
 
     private ImageView picture;
-    Mat imageMat;
+    private String image_path;
+    private String image_path_second;
+    private Filter filter = new SketchFilter();
 
+    enum Mode{
+        SKETCH,
+        WATERCOLOR,
+        BLENDING,
+        PENCIL
+    }
+    // 0: pencil
+    private Mode mode = Mode.SKETCH;
+
+    private Mat imageMat;
     private Uri imageUri;
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -124,6 +138,36 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public boolean onCreateOptionsMenu(Menu menu){
+        getMenuInflater().inflate(R.menu.main_optionmenu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item){
+        int id = item.getItemId();
+        switch(id){
+
+            case R.id.sketch_filter:
+                this.mode = Mode.SKETCH;
+                this.filter = new SketchFilter();
+                break;
+            case R.id.watercolor_filter:
+                this.mode = Mode.WATERCOLOR;
+                this.filter = new WaterColorFilter();
+                break;
+            case R.id.blending:
+                this.mode = Mode.BLENDING;
+                this.filter = new BlendFilter();
+                break;
+            case R.id.pencil_filter:
+                this.mode = Mode.PENCIL;
+                this.filter = new PencilFilter();
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    @Override
     public void onResume()
     {
         super.onResume();
@@ -141,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
     private void openAlbum() {
         Intent intent = new Intent("android.intent.action.GET_CONTENT");
         intent.setType("image/*");
+       // intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         startActivityForResult(intent, CHOOSE_PHOTO); // 打开相册
     }
 
@@ -167,20 +212,9 @@ public class MainActivity extends AppCompatActivity {
                         // 将拍摄的照片显示出来
                         Bitmap bitmap = BitmapFactory.decodeStream(
                                 getContentResolver().openInputStream(imageUri));
-                        // Test OpenCV functions
-//                        Mat cvMat = new Mat(bitmap.getWidth(), bitmap.getHeight(), CvType.CV_8UC4);
-//                        Utils.bitmapToMat(bitmap, cvMat);
-//                        Mat cvMatGray = new Mat(
-//                                bitmap.getWidth(), bitmap.getHeight(), CvType.CV_8UC1);
-//                        Imgproc.cvtColor(cvMat, cvMatGray, Imgproc.COLOR_BGRA2GRAY, 1);
-//                        Bitmap destBitmap = Bitmap.createBitmap(
-//                                cvMatGray.cols(), cvMatGray.rows(), Bitmap.Config.ARGB_8888);
-//                        Utils.matToBitmap(cvMatGray, destBitmap);
-                        SketchFilter sketch = new SketchFilter();
-                        Bitmap destBitmap = sketch.filterImage(bitmap);
+                        Bitmap destBitmap = filter.filterImage(bitmap);
                         Log.d("CVTime", "Successful");
                         picture.setImageBitmap(destBitmap);
-
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -191,10 +225,28 @@ public class MainActivity extends AppCompatActivity {
                     // 判断手机系统版本号
                     if (Build.VERSION.SDK_INT >= 19) {
                         // 4.4及以上系统使用这个方法处理图片
-                        handleImageOnKitKat(data);
+                        // Try to get the uri from data
+                        Uri uri = data.getData();
+                        if(this.image_path == null) {
+                            this.image_path = handleImageOnKitKat(uri);
+                            if(this.mode == Mode.BLENDING)
+                                return;
+                            else {
+                                displayImage(this.image_path);
+                                this.image_path = null;
+                                this.image_path_second = null;
+                            }
+                        }
+                        else {
+                            this.image_path_second = handleImageOnKitKat(uri);
+                            displayImage(this.image_path, this.image_path_second);
+                            this.image_path = null;
+                            this.image_path_second = null;
+                        }
                     } else {
                         // 4.4以下系统使用这个方法处理图片
-                        handleImageBeforeKitKat(data);
+                        String image_path  = handleImageBeforeKitKat(data);
+                        displayImage(image_path);
                     }
                 }
                 break;
@@ -204,36 +256,43 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @TargetApi(19)
-    private void handleImageOnKitKat(Intent data) {
+    private String handleImageOnKitKat(Uri uri) {
         String imagePath = null;
-        Uri uri = data.getData();
+        //Uri uri = data.getData();
+       // Uri uri = data.getClipData().getItemAt(0).getUri();
         Log.d("TAG", "handleImageOnKitKat: uri is " + uri);
         if (DocumentsContract.isDocumentUri(this, uri)) {
             // 如果是document类型的Uri，则通过document id处理
+            System.out.println("Document");
             String docId = DocumentsContract.getDocumentId(uri);
             if("com.android.providers.media.documents".equals(uri.getAuthority())) {
+                System.out.println("Media Documents");
                 String id = docId.split(":")[1]; // 解析出数字格式的id
                 String selection = MediaStore.Images.Media._ID + "=" + id;
                 imagePath = getImagePath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, selection);
             } else if ("com.android.providers.downloads.documents".equals(uri.getAuthority())) {
+                System.out.println("Download Documents");
                 Uri contentUri = ContentUris.withAppendedId(
                         Uri.parse("content://downloads/public_downloads"), Long.valueOf(docId));
                 imagePath = getImagePath(contentUri, null);
             }
         } else if ("content".equalsIgnoreCase(uri.getScheme())) {
             // 如果是content类型的Uri，则使用普通方式处理
+            System.out.println("Content");
             imagePath = getImagePath(uri, null);
         } else if ("file".equalsIgnoreCase(uri.getScheme())) {
             // 如果是file类型的Uri，直接获取图片路径即可
+            System.out.println("File");
             imagePath = uri.getPath();
         }
-        displayImage(imagePath); // 根据图片路径显示图片
+        return imagePath;
     }
 
-    private void handleImageBeforeKitKat(Intent data) {
+    private String handleImageBeforeKitKat(Intent data) {
         Uri uri = data.getData();
         String imagePath = getImagePath(uri, null);
-        displayImage(imagePath);
+        return imagePath;
+        // displayImage(imagePath);
     }
 
     private String getImagePath(Uri uri, String selection) {
@@ -253,16 +312,20 @@ public class MainActivity extends AppCompatActivity {
     private void displayImage(String imagePath) {
         if (imagePath != null) {
             Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
-
             // Test OpenCV functions
-            Mat cvMat = new Mat(bitmap.getWidth(), bitmap.getHeight(), CvType.CV_8UC4);
-            Utils.bitmapToMat(bitmap, cvMat);
-            Mat cvMatGray = new Mat(bitmap.getWidth(), bitmap.getHeight(), CvType.CV_8UC1);
-            Imgproc.cvtColor(cvMat, cvMatGray, Imgproc.COLOR_BGR2GRAY, 1);
+            Bitmap destBitmap = filter.filterImage(bitmap);
+            picture.setImageBitmap(destBitmap);
+            Log.d("CVTime", "Successful");
+        } else {
+            Toast.makeText(this, "failed to get image", Toast.LENGTH_SHORT).show();
+        }
+    }
 
-            Bitmap destBitmap = Bitmap.createBitmap(
-                    cvMatGray.cols(), cvMatGray.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(cvMatGray, destBitmap);
+    private void displayImage(String imagePath_first, String imagePath_second) {
+        if (imagePath_first != null && imagePath_second != null) {
+            Bitmap bitmap_src = BitmapFactory.decodeFile(imagePath_first);
+            Bitmap bitmap_dst = BitmapFactory.decodeFile(imagePath_second);
+            Bitmap destBitmap = filter.filterImage(bitmap_src, bitmap_dst);
             picture.setImageBitmap(destBitmap);
             Log.d("CVTime", "Successful");
         } else {

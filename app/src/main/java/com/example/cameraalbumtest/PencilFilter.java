@@ -14,9 +14,11 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.android.Utils;
 import org.opencv.photo.Photo;
 
-public class WaterColorFilter extends Filter{
 
-    public WaterColorFilter(){
+public class PencilFilter extends Filter {
+
+
+    public PencilFilter(){
 
     }
 
@@ -24,17 +26,18 @@ public class WaterColorFilter extends Filter{
     public Bitmap filterImage(Bitmap inputImage){
         // Bitmap to ARGB cv_mat
         Mat cvMat = new Mat(inputImage.getWidth(), inputImage.getHeight(), CvType.CV_8UC4);
+        Mat cvMatGray = new Mat(inputImage.getWidth(), inputImage.getHeight(), CvType.CV_8UC1);
         Utils.bitmapToMat(inputImage, cvMat);
         Imgproc.cvtColor(cvMat, cvMat, Imgproc.COLOR_BGRA2BGR);
         // Apply a watercolor filter
-        Mat cvMatWaterColor = cvMat.clone();
-        Photo.stylization(cvMat, cvMatWaterColor);
+        Mat cvMatPencil = cvMat.clone();
+        Photo.pencilSketch(cvMat, cvMatGray, cvMatPencil);
         Bitmap filteredImage = Bitmap.createBitmap(
                 cvMat.cols(),
                 cvMat.rows(),
                 Bitmap.Config.ARGB_8888
         );
-        Utils.matToBitmap(cvMatWaterColor, filteredImage);
+        Utils.matToBitmap(cvMatGray, filteredImage);
         return filteredImage;
     }
 
@@ -42,4 +45,5 @@ public class WaterColorFilter extends Filter{
     public Bitmap filterImage(Bitmap inputImage_first, Bitmap inputImage_second) {
         return null;
     }
+
 }

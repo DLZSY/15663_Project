@@ -14,12 +14,13 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.android.Utils;
 
 
-public class SketchFilter {
+public class SketchFilter extends Filter {
 
     public SketchFilter(){
 
     }
 
+    @Override
     public Bitmap filterImage(Bitmap inputImage){
 
         // Bitmap to ARGB cv_mat
@@ -54,5 +55,10 @@ public class SketchFilter {
         );
         Utils.matToBitmap(cvMatGrayBlend, filteredImage);
         return filteredImage;
+    }
+
+    @Override
+    public Bitmap filterImage(Bitmap inputImage_first, Bitmap inputImage_second) {
+        return null;
     }
 }
